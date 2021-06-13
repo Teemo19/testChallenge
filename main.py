@@ -101,3 +101,17 @@ def get_all_users():
         result.append(user_data)
 
     return jsonify({'users': result})
+
+
+@app.route('/author', methods=['POST', 'GET'])
+@token_required
+def create_author(current_user):
+    data = request.get_json()
+
+    new_authors = Authors(name=data['name'], country=data['country'], book=data['book'], booker_prize=True,
+                          user_id=current_user.id)
+    db.session.add(new_authors)
+    db.session.commit()
+
+    return jsonify({'message': 'new author created'})
+
