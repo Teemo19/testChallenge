@@ -6,6 +6,7 @@ import jwt
 import datetime
 import os
 import requests
+from requests.auth import HTTPBasicAuth
 from functools import wraps
 
 app = Flask(__name__)
@@ -39,17 +40,22 @@ def token_required(f):
     def decorator(*args, **kwargs):
 
         token = None
+        #testing
+        #if 'x-access-tokens' in request.headers:
+        #    token = request.headers['Authorization']
 
-        if 'x-access-tokens' in request.headers:
-            token = request.headers['x-access-tokens']
+        if 'Authorization' in request.headers:
+            token = request.headers['Authorization']
 
         if not token:
             return jsonify({'message': 'a valid token is missing'})
 
         try:
-            data = jwt.decode(token, app.config[SECRET_KEY])
+            data = jwt.decode(token, app.config['SECRET_KEY'])
+            print(data)
             current_user = Users.query.filter_by(public_id=data['public_id']).first()
-        except:
+        except Exception as e:
+            print(e)
             return jsonify({'message': 'token is invalid'})
         return f(current_user, *args, **kwargs)
     return decorator
@@ -100,7 +106,7 @@ def get_all_users():
 
 @app.route('/exchange_rate', methods=['GET'])
 @token_required
-def exchange_rate():
+def exchange_rate(current_user):
 
     return {
             "rates":
