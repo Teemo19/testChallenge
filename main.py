@@ -133,3 +133,19 @@ def get_authors(current_user):
 
      return jsonify({'list_of_authors' : output})
 
+@app.route('/authors/<author_id>', methods=['DELETE'])
+@token_required
+def delete_author(current_user, author_id):
+    author = Author.query.filter_by(id=author_id, user_id=current_user.id).first()
+    if not author:
+       return jsonify({'message': 'author does not exist'})
+
+
+    db.session.delete(author)
+    db.session.commit()
+
+    return jsonify({'message': 'Author deleted'})
+
+
+if  __name__ == '__main__':
+     app.run(debug=True)
