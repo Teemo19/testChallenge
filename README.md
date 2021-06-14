@@ -1,2 +1,4 @@
 # testChallenge
-This is a test challenge for a job
+
+##usage 
+#### python test.py
