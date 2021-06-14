@@ -1,12 +1,15 @@
 from flask import Flask, request, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 import jwt
 import datetime
 import os
+import pandas as pd
 import requests
-from requests.auth import HTTPBasicAuth
+from datetime import datetime as dt
 from functools import wraps
 
 app = Flask(__name__)
@@ -83,7 +86,7 @@ def login_user():
         token = jwt.encode(
             {'public_id': user.public_id, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
             app.config['SECRET_KEY'])
-        return jsonify({'token': token.encode().decode('UTF-8')})
+        return jsonify({'token': token.decode('UTF-8')})
     return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
 
@@ -104,22 +107,39 @@ def get_all_users():
 
     return jsonify({'users': result})
 
+def diario_oficial_de_la_federacion():
+    fechaInicial = dt.now().strftime("01/%m/%Y")
+    fechaFinal = dt.now().strftime("%d/%m/%Y")
+    parse_date = lambda fecha: str(datetime.date(int(fecha[6:]), int(fecha[4:5]), int(fecha[:2])))
+    url = "https://www.banxico.org.mx/tipcamb/tipCamIHAction.do?fechaInicial={}&fechaFinal={}".format(fechaInicial, fechaFinal)
+    df = pd.read_html(url, match="Fecha")[1]
+    last_date = parse_date(df[0][1].split("  ")[-1])+"T{}Z".format(dt.timetz(dt.now()))
+    last_price = df[1][1].split("  ")[-1]
+    return {"last_date": last_date, "last_price": last_price}
+
+def fixer_io():
+    access_key = "e79077b6dc2f0b2c92a549f6a319e0ad"
+    r = requests.get("http://data.fixer.io/api/latest?access_key={}".format(access_key))
+    rates = r.json()["rates"]
+    usd = rates["USD"]
+    mxn = rates["MXN"]
+    last_date = dt.now().strftime("%Y-%m-%d")+"T{}Z".format(dt.timetz(dt.now()))
+    return {"last_price": mxn/usd, "last_date": last_date}
+
 @app.route('/exchange_rate', methods=['GET'])
 @token_required
 def exchange_rate(current_user):
-
     return {
             "rates":
                 {
-                    "provider_1": {
-                    "last_updated": "2018-04-22T18:25:43.511Z",
-                    "value": 20.4722
+                    "Diario oficial de la federacion": {
+                        "last_updated": diario_oficial_de_la_federacion()["last_date"],
+                        "value": diario_oficial_de_la_federacion()["last_price"]
                     },
-                    "provider_2_variant_1":
-                        {
-                            "last_updated": "2018-04-23T18:25:43.511Z",
-                            "value": 20.5281
-                        }
+                    "Fixer": {
+                        "last_updated": fixer_io()["last_date"],
+                        "value": fixer_io()["last_price"]
+                    }
                 }
             }
 
