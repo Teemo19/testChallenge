@@ -1,4 +1,4 @@
-##USAGE
+## USAGE
 
 ```
 python test.py
