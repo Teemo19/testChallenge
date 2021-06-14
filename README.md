@@ -1,4 +1,4 @@
-## USAGE
+## testChallenge USAGE
 
 ```
 python test.py
