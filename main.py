@@ -9,6 +9,7 @@ import datetime
 import os
 import pandas as pd
 import requests
+from datetime import date
 from datetime import datetime as dt
 from functools import wraps
 
@@ -40,7 +41,6 @@ def token_required(f):
             return jsonify({'message': 'a valid token is missing'})
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
-            print(data)
             current_user = Users.query.filter_by(public_id=data['public_id']).first()
         except Exception as e:
             print(e)
@@ -92,10 +92,11 @@ def get_all_users():
 
     return jsonify({'users': result})
 
+parse_date = lambda fecha: str(date(int(fecha[6:]), int(fecha[4:5]), int(fecha[:2])))
+
 def diario_oficial_de_la_federacion():
     fechaInicial = dt.now().strftime("01/%m/%Y")
     fechaFinal = dt.now().strftime("%d/%m/%Y")
-    parse_date = lambda fecha: str(datetime.date(int(fecha[6:]), int(fecha[4:5]), int(fecha[:2])))
     url = "https://www.banxico.org.mx/tipcamb/tipCamIHAction.do?fechaInicial={}&fechaFinal={}".format(fechaInicial, fechaFinal)
     df = pd.read_html(url, match="Fecha")[1]
     last_date = parse_date(df[0][1].split("  ")[-1])+"T{}Z".format(dt.timetz(dt.now()))
@@ -109,7 +110,19 @@ def fixer_io():
     usd = rates["USD"]
     mxn = rates["MXN"]
     last_date = dt.now().strftime("%Y-%m-%d")+"T{}Z".format(dt.timetz(dt.now()))
-    return {"last_price": mxn/usd, "last_date": last_date}
+    return {"last_price": "{:.4f}".format(mxn/usd), "last_date": last_date}
+
+def Banxico():
+    headers = {
+              "Accept": "application/json",
+              "Bmx-Token": "845a0f7583215fd411ce579d5a6fa960141e01856abb6398169c4d0128f6aeb4"
+            }
+    url = "https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF60653/datos/oportuno"
+    r = requests.get(url, headers=headers).json()
+    data = r["bmx"]["series"][0]["datos"][0]
+    last_price = float(data["dato"])
+    last_date = parse_date(data["fecha"])+"T{}Z".format(dt.timetz(dt.now()))
+    return {"last_price": last_price, "last_date": last_date}
 
 @app.route('/exchange_rate', methods=['GET'])
 @token_required
@@ -124,6 +137,10 @@ def exchange_rate(current_user):
                     "Fixer": {
                         "last_updated": fixer_io()["last_date"],
                         "value": fixer_io()["last_price"]
+                    },
+                    "Banxico": {
+                        "last_updated": Banxico()["last_date"],
+                        "value": Banxico()["last_price"]
                     }
                 }
             }
