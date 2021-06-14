@@ -33,18 +33,11 @@ class Users(db.Model):
 def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
-
         token = None
-        #testing
-        #if 'x-access-tokens' in request.headers:
-        #    token = request.headers['Authorization']
-
         if 'Authorization' in request.headers:
             token = request.headers['Authorization']
-
         if not token:
             return jsonify({'message': 'a valid token is missing'})
-
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
             print(data)
