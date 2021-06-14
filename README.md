@@ -1,4 +1,3 @@
 # testChallenge
-
-## usage 
-#### python test.py
+USAGE
+´´´python test.py´´´
