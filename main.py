@@ -15,6 +15,12 @@ from functools import wraps
 
 app = Flask(__name__)
 
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["500 per day", "50 per hour"]
+)
+
 app.config['SECRET_KEY'] = 'Th1s1ss3cr3t'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.getcwd(), 'library.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
@@ -50,6 +56,7 @@ def token_required(f):
 
 
 @app.route('/register', methods=['GET', 'POST'])
+@limiter.exempt
 def signup_user():
     data = request.get_json()
     hashed_password = generate_password_hash(data['password'], method='sha256')
@@ -74,23 +81,6 @@ def login_user():
         return jsonify({'token': token.decode('UTF-8')})
     return make_response('could not verify', 401, {'WWW.Authentication': 'Basic realm: "login required"'})
 
-
-@app.route('/users', methods=['GET'])
-def get_all_users():
-    users = Users.query.all()
-
-    result = []
-
-    for user in users:
-        user_data = {}
-        user_data['public_id'] = user.public_id
-        user_data['name'] = user.name
-        user_data['password'] = user.password
-        user_data['admin'] = user.admin
-
-        result.append(user_data)
-
-    return jsonify({'users': result})
 
 parse_date = lambda fecha: str(date(int(fecha[6:]), int(fecha[4:5]), int(fecha[:2])))
 
